@@ -1,0 +1,4 @@
+Decoder,Average Latency (us),Minimum Latency (us),Maximum Latency (us),Std Dev (us),Throughput (decodes/sec)
+CPU Lookup,1.321,1.080,9.590,0.373,757257.04
+CPU MWPM,1.767,1.550,7.150,0.298,565882.39
+FPGA Lookup,193.564,162.950,714.330,42.641,5166.25
