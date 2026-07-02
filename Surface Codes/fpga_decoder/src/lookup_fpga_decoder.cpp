@@ -1,16 +1,23 @@
-// fpga_decoder/src/qec_decoder.cpp
+// fpga_decoder/src/lookup_fpga.cpp
 //
 // FPGA lookup-table decoder for the d=3 surface code.
 //
 // Input:
-//   syndromes[i]   : 4-bit syndrome encoded as an integer (0-15)
+//   syndromes[i]   : 4-bit syndrome encoded as an integer (0-15),
+//                    with S0 as the most-significant bit:
+//                    s = s0*8 + s1*4 + s2*2 + s3*1
 //
 // Output:
 //   corrections[i] : data qubit index to correct
 //                    -1 means "no correction"
 //
+// NOTE: This table is derived from the CORRECTED d=3 geometry in
+//       surface_code/config.py (Z_STABILIZERS). It must be regenerated
+//       if that geometry changes. Requires re-synthesis of the .xclbin
+//       to take effect on hardware.
+//
 // Example:
-//   syndrome = 15 (0b1111) -> correction = 4
+//   syndrome = 6 (0b0110) -> correction = 4
 //
 
 extern "C" {
@@ -35,20 +42,20 @@ void qec_decoder(
         int s = syndromes[i];
         int correction = -1;
 
-        // Lookup table:
-        // syndrome -> data qubit
+        // Lookup table: syndrome integer -> data qubit
+        // Derived from corrected Z_STABILIZERS (S0 = MSB).
+        // Collisions: q1/q2 -> 4 (q1 kept), q6/q7 -> 2 (q6 kept),
+        // matching build_lookup_table() in lookup_decoder.py.
         switch (s) {
             case 0:   correction = -1; break; // 0000 -> no error
-            case 1:   correction = 0;  break; // 0001
-            case 3:   correction = 1;  break; // 0011
-            case 2:   correction = 2;  break; // 0010
-            case 5:   correction = 3;  break; // 0101
-            case 15:  correction = 4;  break; // 1111
-            case 10:  correction = 5;  break; // 1010
-            case 4:   correction = 6;  break; // 0100
-            case 12:  correction = 7;  break; // 1100
-            case 8:   correction = 8;  break; // 1000
-            default:  correction = -1; break; // unknown syndrome
+            case 8:   correction = 0;  break; // 1000 -> q0
+            case 4:   correction = 1;  break; // 0100 -> q1
+            case 10:  correction = 3;  break; // 1010 -> q3
+            case 6:   correction = 4;  break; // 0110 -> q4
+            case 5:   correction = 5;  break; // 0101 -> q5
+            case 2:   correction = 6;  break; // 0010 -> q6
+            case 1:   correction = 8;  break; // 0001 -> q8
+            default:  correction = -1; break; // unknown / degenerate-lost
         }
 
         corrections[i] = correction;

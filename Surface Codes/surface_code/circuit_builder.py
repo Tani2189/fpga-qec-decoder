@@ -11,21 +11,25 @@ from .config import (
 # =========================================================
 # Error Injection
 # =========================================================
-def _inject_error(qc, data, error_qubit=None, error_type=None):
+def _inject_errors(qc, data, errors=None):
     """
     Inject a single Pauli error on a data qubit.
     """
-    if error_qubit is None:
+    if errors is None:
         return
 
-    if error_type == "X":
-        qc.x(data[error_qubit])
-    elif error_type == "Z":
-        qc.z(data[error_qubit])
-    elif error_type == "Y":
-        qc.y(data[error_qubit])
-    else:
-        raise ValueError(f"Unsupported error type: {error_type}")
+    for error_type, qubit in errors:
+        if error_type == "X":
+            qc.x(data[qubit])
+
+        elif error_type == "Y":
+            qc.y(data[qubit])
+
+        elif error_type == "Z":
+            qc.z(data[qubit])
+        else:
+            raise ValueError(f"Invalid error type: {error_type}. Must be 'X', 'Y', or 'Z'.")
+    return qc
 
 
 # =========================================================
@@ -65,7 +69,7 @@ def _measure_x_stabilizers(qc, data, anc_x):
 # =========================================================
 # Stage 1: Single-Round Z Stabilizers Only
 # =========================================================
-def build_single_round_circuit(error_qubit=None, error_type=None):
+def build_single_round_circuit(error_qubit=None, error_type=None, errors=None,):
     """
     Original single-round circuit:
     Measures only Z stabilizers.
@@ -77,7 +81,27 @@ def build_single_round_circuit(error_qubit=None, error_type=None):
 
     qc = QuantumCircuit(data, anc, c)
 
-    _inject_error(qc, data, error_qubit, error_type)
+    if errors is not None:
+
+        _inject_errors(
+            qc,
+            data,
+            errors,
+        )
+
+    elif (
+        error_qubit is not None and error_type is not None):
+
+        _inject_errors(
+            qc,
+            data,
+            [
+                (
+                    error_type,
+                    error_qubit,
+                )
+            ],
+        )
     _measure_z_stabilizers(qc, data, anc)
 
     for i in range(NUM_ANCILLA_Z):
@@ -111,7 +135,7 @@ def build_multi_round_circuit(
     for r in range(rounds):
 
         if r == error_round:
-            _inject_error(qc, data, error_qubit, error_type)
+            _inject_errors(qc, data, [(error_type, error_qubit)] if error_qubit is not None else None)
 
         _measure_z_stabilizers(qc, data, anc)
 
@@ -126,10 +150,7 @@ def build_multi_round_circuit(
 # Stage 2: Full Single-Round Surface-Code Circuit
 # Measures both Z and X stabilizers
 # =========================================================
-def build_full_single_round_circuit(
-    error_qubit=None,
-    error_type=None,
-):
+def build_full_single_round_circuit(error_qubit=None,error_type=None,errors=None,):
     """
     Build a single-round circuit measuring:
 
@@ -149,8 +170,29 @@ def build_full_single_round_circuit(
 
     qc = QuantumCircuit(data, anc_z, anc_x, c_z, c_x)
 
-    # Inject optional X / Y / Z error
-    _inject_error(qc, data, error_qubit, error_type)
+    if errors is not None:
+
+        _inject_errors(
+            qc,
+            data,
+            errors,
+        )
+
+    elif (
+        error_qubit is not None
+        and error_type is not None
+    ):
+
+        _inject_errors(
+            qc,
+            data,
+            [
+                (
+                    error_type,
+                    error_qubit,
+                )
+            ],
+        )
 
     # Measure Z stabilizers (detect X errors)
     _measure_z_stabilizers(qc, data, anc_z)

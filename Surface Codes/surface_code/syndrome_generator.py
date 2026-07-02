@@ -1,4 +1,4 @@
-# surface_code/syndrome_generator.py
+import random
 
 from qiskit_aer import AerSimulator
 from .circuit_builder import (
@@ -31,7 +31,7 @@ def run_circuit(qc, shots=1):
 # =========================================================
 # Stage 1: Single-Round Z-Stabilizer Syndrome
 # =========================================================
-def get_syndrome(error_qubit=None, error_type=None):
+def get_syndrome(error_qubit=None, error_type=None, errors=None):
     """
     Generate a single-round syndrome from Z stabilizers only.
 
@@ -43,18 +43,24 @@ def get_syndrome(error_qubit=None, error_type=None):
     qc = build_single_round_circuit(
         error_qubit=error_qubit,
         error_type=error_type,
+        errors=errors,
     )
-    return run_circuit(qc)
+    return run_circuit(qc)[::-1]
 
 
-def get_syndrome_int(error_qubit=None, error_type=None):
-    """
-    Return the single-round syndrome as an integer.
-
-    Example:
-        "1111" -> 15
-    """
-    return int(get_syndrome(error_qubit, error_type), 2)
+def get_syndrome_int(
+    error_qubit=None,
+    error_type=None,
+    errors=None,
+):
+    return int(
+        get_syndrome(
+            error_qubit=error_qubit,
+            error_type=error_type,
+            errors=errors,
+        ),
+        2,
+    )
 
 
 # =========================================================
@@ -102,7 +108,7 @@ def get_multi_round_circuit(
 # =========================================================
 # Stage 2: Full Single-Round Syndrome
 # =========================================================
-def get_full_syndrome(error_qubit=None, error_type=None):
+def get_full_syndrome(error_qubit=None, error_type=None, errors=None):
     """
     Measure both stabilizer families.
 
@@ -138,6 +144,7 @@ def get_full_syndrome(error_qubit=None, error_type=None):
     qc = build_full_single_round_circuit(
         error_qubit=error_qubit,
         error_type=error_type,
+        errors=errors,
     )
 
     raw = run_circuit(qc)
@@ -173,3 +180,47 @@ def get_full_syndrome(error_qubit=None, error_type=None):
     }
 
 
+# =========================================================
+# Measurement (readout) error injection - phenomenological
+# =========================================================
+def inject_measurement_errors(round_syndromes, p=0.0, flips=None):
+    """
+    Apply measurement/readout errors to per-round syndromes.
+
+    A measurement error flips a stabilizer's readout bit in ONE round
+    only - the next round reads correctly again. This is the
+    phenomenological noise model that time-like edges are built to match.
+
+    Parameters
+    ----------
+    round_syndromes : list[str]
+        Per-round syndromes, e.g. ["0000", "0110", "0110", "0110"]
+    p : float
+        Probability each stabilizer bit is independently flipped, per round.
+    flips : list[tuple[int, int]]
+        Deterministic (stabilizer_index, round_index) flips - use this for
+        testing so you know exactly where the error is.
+
+    Returns
+    -------
+    list[str]
+        New per-round syndromes with the flips applied.
+    """
+    grid = [list(r) for r in round_syndromes]
+    n_rounds = len(grid)
+    n_stab = len(grid[0]) if grid else 0
+
+    def flip(s, r):
+        grid[r][s] = "1" if grid[r][s] == "0" else "0"
+
+    if flips:
+        for (s, r) in flips:
+            flip(s, r)
+
+    if p > 0:
+        for r in range(n_rounds):
+            for s in range(n_stab):
+                if random.random() < p:
+                    flip(s, r)
+
+    return ["".join(row) for row in grid]
