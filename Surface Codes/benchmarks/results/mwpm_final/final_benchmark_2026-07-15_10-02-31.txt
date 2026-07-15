@@ -1,0 +1,25 @@
+FPGA MWPM Decoder — Final Benchmark Record
+Generated: 2026-07-15_10-02-31
+======================================================================
+
+Workload: 5000 syndromes, rounds=4, MAX_ACTIVE_DEFECTS=6
+Active-defect count distribution: {1: 2653, 2: 1378, 3: 707, 4: 262}
+
+Correctness: 290 exact, 10 ties, 0 bugs, out of 300
+
+CPU baselines
+  our pipeline   : 32325.3 ns/decode, 0.031 M/s
+  PyMatching peak: 12000.3 ns/decode, 2.540 M/s
+
+FPGA v1
+  load time (one-time): 188.1 ms
+  median latency: 85.34 us
+  batch throughput: 0.779 M/s
+
+  FPGA is 24.94x faster than our CPU pipeline
+  PyMatching's peak CPU speed is 3.26x faster than FPGA
+
+Notes
+  - Kernel: bounded bitmask-DP MWPM, MAX_ACTIVE_DEFECTS=6, DP over up to 12 nodes (2x for boundary doubling), spacetime graph rounds=4, distance-3 surface code, X-error only.
+  - A v2 kernel with double-buffered DP storage (targeting cross-syndrome serialization) was built, hardware-validated (500/500), and benchmarked: it was ~7% SLOWER than v1, not faster. Root cause: the outer per-syndrome loop was never explicitly pipelined, so double-buffering removed a hazard that was never being exploited, while adding BRAM and addressing overhead. v1 is the kernel used for these final numbers.
+  - The likely dominant bottleneck is the within-syndrome DP loop achieving only II=2 (not II=1) due to a genuine read-then-conditionally-write hazard on shared DP subset states - a deeper, unattempted optimization (popcount-wavefront restructuring) would be needed to address this.

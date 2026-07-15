@@ -1,0 +1,48 @@
+{
+  "timestamp": "2026-07-15_09-56-00",
+  "platform": {
+    "python": "3.8.20",
+    "os": "Linux-5.4.0-193-generic-x86_64-with-glibc2.17"
+  },
+  "workload": {
+    "n": 5000,
+    "rounds": 4,
+    "max_active_defects": 6,
+    "overflow_skipped": 0,
+    "active_count_distribution": {
+      "1": 2653,
+      "2": 1378,
+      "3": 707,
+      "4": 262
+    }
+  },
+  "correctness": {
+    "sample": 300,
+    "exact": 290,
+    "ties": 10,
+    "bugs": 0
+  },
+  "flatten_order_verified": "F",
+  "cpu": {
+    "pipeline_latency_ns": 31720.198,
+    "pipeline_throughput_per_s": 32126.516380407946,
+    "pymatching_peak_latency_ns": 11513.45,
+    "pymatching_peak_throughput_per_s": 2506238.026447829
+  },
+  "fpga_v1": {
+    "load_time_s": 0.138673742,
+    "median_latency_ns": 90600.0,
+    "p90_latency_ns": 114337.0,
+    "min_latency_ns": 81729,
+    "batch_throughput_per_s": 784380.6593064569
+  },
+  "ratios": {
+    "fpga_vs_our_pipeline": 24.415366111241493,
+    "fpga_vs_pymatching_peak": 0.31297133433817725
+  },
+  "notes": [
+    "Kernel: bounded bitmask-DP MWPM, MAX_ACTIVE_DEFECTS=6, DP over up to 12 nodes (2x for boundary doubling), spacetime graph rounds=4, distance-3 surface code, X-error only.",
+    "A v2 kernel with double-buffered DP storage (targeting cross-syndrome serialization) was built, hardware-validated (500/500), and benchmarked: it was ~7% SLOWER than v1, not faster. Root cause: the outer per-syndrome loop was never explicitly pipelined, so double-buffering removed a hazard that was never being exploited, while adding BRAM and addressing overhead. v1 is the kernel used for these final numbers.",
+    "The likely dominant bottleneck is the within-syndrome DP loop achieving only II=2 (not II=1) due to a genuine read-then-conditionally-write hazard on shared DP subset states - a deeper, unattempted optimization (popcount-wavefront restructuring) would be needed to address this."
+  ]
+}
